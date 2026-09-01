@@ -10,7 +10,7 @@
 //      "select from <tbl> where date=DT" needs filtering or projection.
 
 // Tables to pull. Real prod names live in b2c2-kdb/kdb-app/tick/schemas/*.q
-.bt.pulls.tables:`availableBalance`carryCost`liveOwn`riskBookNetRisk`underlierMid`volatility`cashDerivativeDecision;
+.bt.pulls.tables:`availableBalance`carryCost`liveOwn`riskBookNetRisk`underlierMid`volatility`cashDerivativeDecision`obTob`bookAsymMicroSignalBinance;
 
 // Per-table query overrides. Function takes a date, returns the IPC query string.
 .bt.pulls.override:(`symbol$())!();
@@ -43,4 +43,13 @@
     "`timestamp xasc select timestamp, sym, name, expected_tenor, hedgingInstruments from raze {[d;s] .qt.strategy.getStrategyOutput[`cashVsDeriv;d;s;();()]}[",string[dt],";] each `BTC`ETH`SOL`XRP"
  };
 
+.bt.pulls.override[`obTob]:{[dt]
+    "`timestamp xasc select timestamp, sym, exchange, bidPrice, askPrice, bidQuantity, askQuantity from .qt.dr.getRawData[`table`dateList`symList`exchange`inclCols!(`obTob;",string[dt],";`BTCUST;`binance2;`date`exchange`sym`timestamp`bidPrice`askPrice`bidQuantity`askQuantity)]"
+ };
 
+// Micro signal derived from the binance2 obTob book. Sym must be the 6-char pair
+// (.qt.util.sym.replaceCounter maps BTCUSD -> BTCUST internally); `BTC would signal.
+// `date` is dropped so .Q.dpft in seed.q can add its own partition column.
+.bt.pulls.override[`bookAsymMicroSignalBinance]:{[dt]
+    "`timestamp xasc delete date from .qt.signal.getSignalPrediction[`bookAsymMicroSignalBinance;",string[dt],";`BTCUSD;()]"
+ };

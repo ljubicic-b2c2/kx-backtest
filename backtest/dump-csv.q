@@ -7,6 +7,9 @@
 //
 // Usage:
 //   q dump-csv.q -prodhost <h> -prodport <p> -csv <path> -start <yyyy.mm.dd> -end <yyyy.mm.dd>
+//                [-tables <t1>[,<t2>...]]
+//
+// -tables is optional; without it every table in .bt.pulls.tables is dumped.
 //
 // Output: <csv>/<tableName>.<yyyy.mm.dd>.csv
 // Re-runs are idempotent: files already present on disk are skipped.
@@ -19,6 +22,7 @@
 .bt.dump.cfg.csvPath:`;
 .bt.dump.cfg.startDate:0Nd;
 .bt.dump.cfg.endDate:0Nd;
+.bt.dump.cfg.tables:`$();
 
 
 .bt.dump.parseArgs:{[]
@@ -28,6 +32,10 @@
     .bt.dump.cfg.csvPath:hsym `$first args`csv;
     .bt.dump.cfg.startDate:"D"$first args`start;
     .bt.dump.cfg.endDate:"D"$first args`end;
+    / -tables accepts space- and/or comma-separated names. Absent => everything.
+    .bt.dump.cfg.tables:$[`tables in key args;
+        `$raze "," vs/: args`tables;
+        .bt.pulls.tables];
 
     if[any (""~/:(.bt.dump.cfg.host; first args`csv)) , null (.bt.dump.cfg.port; .bt.dump.cfg.startDate; .bt.dump.cfg.endDate);
         -2 "Missing arg. Need -prodhost -prodport -csv -start -end";
@@ -35,6 +43,13 @@
     ];
     if[.bt.dump.cfg.startDate > .bt.dump.cfg.endDate;
         -2 "Start date (",string[.bt.dump.cfg.startDate],") is after end date (",string[.bt.dump.cfg.endDate],")";
+        exit 1;
+    ];
+
+    unknown:.bt.dump.cfg.tables except .bt.pulls.tables;
+    if[count unknown;
+        -2 "Unknown table(s) in -tables: ",", " sv string unknown;
+        -2 "Known: ",", " sv string .bt.pulls.tables;
         exit 1;
     ];
  };
@@ -103,11 +118,11 @@
     -1 "Connected to ",.bt.dump.cfg.host,":",string .bt.dump.cfg.port;
 
     dates:.bt.dump.cfg.startDate + til 1 + .bt.dump.cfg.endDate - .bt.dump.cfg.startDate;
-    -1 "Dumping ",string[count dates]," date(s) x ",string[count .bt.pulls.tables]," table(s) into ",string .bt.dump.cfg.csvPath;
+    -1 "Dumping ",string[count dates]," date(s) x ",string[count .bt.dump.cfg.tables]," table(s) into ",string .bt.dump.cfg.csvPath;
 
     {[h;dt]
         -1 "Date ",string dt;
-        .bt.dump.pullAndSave[h;;dt] each .bt.pulls.tables;
+        .bt.dump.pullAndSave[h;;dt] each .bt.dump.cfg.tables;
      }[handle;] each dates;
 
     hclose handle;

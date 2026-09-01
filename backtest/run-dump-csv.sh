@@ -12,9 +12,14 @@ source ./qenv.conf
 
 mkdir -p "$CSV_PATH"
 
+# Optional: restrict to a subset of .bt.pulls.tables, e.g.
+#   ./run-dump-csv.sh obTob,bookAsymMicroSignalBinance
+TABLES="${1:-}"
+
 q dump-csv.q \
     -prodhost "$PROD_HOST" \
     -prodport "$PROD_PORT" \
     -csv "$CSV_PATH" \
     -start "$START_DATE" \
-    -end "$END_DATE"
+    -end "$END_DATE" \
+    ${TABLES:+-tables "$TABLES"}
